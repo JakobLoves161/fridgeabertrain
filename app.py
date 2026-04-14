@@ -1,20 +1,33 @@
 import streamlit as st
-from ultralytics import YOLO
+import torch
 from PIL import Image
 import pandas as pd
 from datetime import datetime
+import clip
 
 # -----------------------------
-# YOLO Modell laden
+# Modell laden
 # -----------------------------
 @st.cache_resource
 def load_model():
-    return YOLO("yolov8n.pt")  # vortrainiertes Modell
+    model, preprocess = clip.load("ViT-B/32")
+    return model, preprocess
 
-model = load_model()
+model, preprocess = load_model()
 
 # -----------------------------
-# Session State (Inventar)
+# Klassen definieren (anpassbar!)
+# -----------------------------
+labels = [
+    "Apfel", "Banane", "Milch", "Käse",
+    "Joghurt", "Tomate", "Gurke",
+    "Fleisch", "Eier", "Butter"
+]
+
+text = clip.tokenize(labels)
+
+# -----------------------------
+# Session State
 # -----------------------------
 if "inventory" not in st.session_state:
     st.session_state.inventory = []
@@ -22,47 +35,41 @@ if "inventory" not in st.session_state:
 # -----------------------------
 # UI
 # -----------------------------
-st.title("🧊 Digitaler Kühlschrank mit YOLOv8")
+st.title("🧊 Digitaler Kühlschrank (CLIP AI)")
 
-uploaded_file = st.file_uploader("Lade ein Bild hoch", type=["jpg", "png"])
+uploaded_file = st.file_uploader("Bild hochladen", type=["jpg", "png"])
 
-# -----------------------------
-# Bildverarbeitung + Detection
-# -----------------------------
 if uploaded_file:
     image = Image.open(uploaded_file)
-    st.image(image, caption="Hochgeladenes Bild", use_column_width=True)
+    st.image(image, caption="Bild", use_column_width=True)
 
     if st.button("🔍 Lebensmittel erkennen"):
-        results = model(image)
+        img = preprocess(image).unsqueeze(0)
 
-        detected_items = []
+        with torch.no_grad():
+            image_features = model.encode_image(img)
+            text_features = model.encode_text(text)
 
-        for r in results:
-            for box in r.boxes:
-                cls_id = int(box.cls[0])
-                label = model.names[cls_id]
-                detected_items.append(label)
+            logits_per_image, _ = model(img, text)
+            probs = logits_per_image.softmax(dim=-1).cpu().numpy()
 
-        if detected_items:
-            st.success(f"Erkannt: {', '.join(detected_items)}")
+        predicted_index = probs.argmax()
+        detected_item = labels[predicted_index]
 
-            # Hinzufügen Button
-            if st.button("➕ Zum Inventar hinzufügen"):
-                for item in detected_items:
-                    st.session_state.inventory.append({
-                        "Lebensmittel": item,
-                        "Hinzugefügt am": datetime.now().strftime("%Y-%m-%d %H:%M")
-                    })
+        st.success(f"Erkannt: {detected_item}")
 
-                st.success("✅ Zum Inventar hinzugefügt!")
-        else:
-            st.warning("Keine Lebensmittel erkannt.")
+        if st.button("➕ Zum Inventar hinzufügen"):
+            st.session_state.inventory.append({
+                "Lebensmittel": detected_item,
+                "Hinzugefügt am": datetime.now().strftime("%Y-%m-%d %H:%M")
+            })
+
+            st.success("✅ Hinzugefügt!")
 
 # -----------------------------
-# Inventar anzeigen
+# Inventar
 # -----------------------------
-st.subheader("📦 Dein Kühlschrank Inventar")
+st.subheader("📦 Inventar")
 
 if st.session_state.inventory:
     df = pd.DataFrame(st.session_state.inventory)
@@ -76,6 +83,5 @@ if st.session_state.inventory:
         if col3.button("❌", key=i):
             st.session_state.inventory.pop(i)
             st.rerun()
-
 else:
-    st.info("Noch keine Lebensmittel im Inventar.")
+    st.info("Inventar ist leer.")

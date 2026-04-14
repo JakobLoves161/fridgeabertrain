@@ -21,7 +21,8 @@ model, preprocess = load_model()
 labels = [
     "Apfel", "Banane", "Milch", "Käse",
     "Joghurt", "Tomate", "Gurke",
-    "Fleisch", "Eier", "Butter"
+    "Fleisch", "Eier", "Butter",
+    "Gurke"
 ]
 
 text = clip.tokenize(labels)

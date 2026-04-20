@@ -19,16 +19,62 @@ model, preprocess = load_model()
 # Labels
 # -----------------------------
 labels = [
-    "ein Apfel",
-    "eine Banane",
-    "eine Milchpackung",
-    "ein Stück Käse",
-    "ein Joghurt",
+  labels = [
+    "ein frischer Apfel",
+    "eine reife Banane",
+    "eine Orange",
+    "eine Birne",
     "eine Tomate",
     "eine Gurke",
-    "Fleisch",
-    "Eier",
-    "Butter"
+    "eine Paprika",
+    "eine Karotte",
+    "eine Kartoffel",
+    "eine Zwiebel",
+    "eine Knoblauchknolle",
+    "ein Brokkoli",
+    "ein Blumenkohl",
+    "ein Salatkopf",
+    "eine Zucchini",
+    "eine Aubergine",
+
+    "ein Stück Käse",
+    "eine Milchpackung",
+    "ein Joghurtbecher",
+    "ein Stück Butter",
+    "ein Ei",
+    "ein rohes Fleischstück",
+    "ein Hähnchenfilet",
+    "ein Fischfilet",
+    "eine Wurst",
+    "ein Schinken",
+
+    "eine Brotscheibe",
+    "ein ganzes Brot",
+    "ein Brötchen",
+    "ein Croissant",
+    "eine Pizza",
+    "ein Sandwich",
+    "ein Burger",
+    "eine Portion Nudeln",
+    "eine Portion Reis",
+
+    "eine Flasche Wasser",
+    "eine Saftflasche",
+    "eine Cola Flasche",
+    "eine Bierflasche",
+    "eine Weinflasche",
+
+    "eine Tafel Schokolade",
+    "ein Keks",
+    "ein Stück Kuchen",
+    "ein Eis",
+    "ein Joghurt Dessert",
+
+    "eine Dose",
+    "eine Konservendose",
+    "eine Verpackung Tiefkühlkost",
+    "eine Packung Chips"
+]
 ]
 
 text = clip.tokenize(labels)

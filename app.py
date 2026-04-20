@@ -2,27 +2,30 @@ import streamlit as st
 import torch
 from PIL import Image
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import clip
+import easyocr
+import re
 
 # -----------------------------
-# Modell laden
+# MODELLS
 # -----------------------------
 @st.cache_resource
-def load_model():
-    model, preprocess = clip.load("ViT-B/32")
-    return model, preprocess
+def load_models():
+    clip_model, preprocess = clip.load("ViT-B/32")
+    ocr = easyocr.Reader(['de', 'en'])
+    return clip_model, preprocess, ocr
 
-model, preprocess = load_model()
+model, preprocess, ocr = load_models()
 
 # -----------------------------
-# Labels
+# LABELS
 # -----------------------------
 labels = [
-    "ein frischer Apfel","eine reife Banane","eine Orange","eine Birne",
+   "ein frischer Apfel","eine reife Banane","eine Orange","eine Birne",
     "eine Tomate","eine Gurke","eine Paprika","eine Karotte","eine Kartoffel",
     "eine Zwiebel","eine Knoblauchknolle","ein Brokkoli","ein Blumenkohl",
-    "ein Salatkopf","eine Zucchini","eine Aubergine", "ein Lauch",
+    "ein Salatkopf","eine Zucchini","eine Aubergine",
     "ein Stück Käse","eine Milchpackung","ein Joghurtbecher","ein Stück Butter",
     "ein Ei","ein rohes Fleischstück","ein Hähnchenfilet","ein Fischfilet",
     "eine Wurst","ein Schinken",
@@ -38,55 +41,91 @@ labels = [
 text = clip.tokenize(labels)
 
 # -----------------------------
-# Session State
+# SESSION STATE
 # -----------------------------
 if "inventory" not in st.session_state:
     st.session_state.inventory = []
 
+if "detected_item" not in st.session_state:
+    st.session_state.detected_item = None
+
+if "mhd" not in st.session_state:
+    st.session_state.mhd = None
+
+# -----------------------------
+# FUNCTIONS
+# -----------------------------
+def extract_mhd(image):
+    """OCR + Datumserkennung"""
+    result = ocr.readtext(image)
+
+    text = " ".join([r[1] for r in result])
+
+    # typische Datumsformate
+    match = re.search(r"(\d{2}\.\d{2}\.\d{4})|(\d{4}-\d{2}-\d{2})", text)
+
+    if match:
+        return match.group()
+    return None
+
 # -----------------------------
 # UI
 # -----------------------------
-st.title("🧊 Digitaler Kühlschrank (Auto AI)")
+st.title("🧊 Digitaler Kühlschrank (CLIP + MHD Scanner)")
 
 uploaded_file = st.file_uploader("Bild hochladen", type=["jpg", "png"])
 
 # -----------------------------
-# AUTOMATISCHE ERKENNUNG
+# ERKENNUNG
 # -----------------------------
 if uploaded_file:
     image = Image.open(uploaded_file)
-    st.image(image, caption="Hochgeladenes Bild", use_column_width=True)
+    st.image(image, use_column_width=True)
 
-    img = preprocess(image).unsqueeze(0)
+    img_tensor = preprocess(image).unsqueeze(0)
 
     with torch.no_grad():
-        logits_per_image, _ = model(img, text)
-        probs = logits_per_image.softmax(dim=-1).cpu().numpy()[0]
+        logits, _ = model(img_tensor, text)
+        probs = logits.softmax(dim=-1).cpu().numpy()[0]
 
-    # 🔥 BESTES ERGEBNIS
     best_index = probs.argmax()
-    best_label = labels[best_index]
-    confidence = probs[best_index]
+    st.session_state.detected_item = labels[best_index]
 
-    # 🔥 Nur hinzufügen wenn sinnvoll sicher
-    threshold = 0.20
+    st.success(f"Erkannt: {st.session_state.detected_item}")
 
-    if confidence > threshold:
-        item = {
-            "Lebensmittel": best_label,
-            "Hinzugefügt am": datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "Sicherheit": round(float(confidence), 2)
-        }
+    # -----------------------------
+    # MHD SCAN
+    # -----------------------------
+    if st.button("📅 MHD scannen"):
+        mhd = extract_mhd(uploaded_file)
 
-        # 🔥 Verhindert doppelte Einträge direkt nacheinander
-        if not st.session_state.inventory or st.session_state.inventory[-1]["Lebensmittel"] != best_label:
-            st.session_state.inventory.append(item)
-            st.success(f"✅ Erkannt & hinzugefügt: {best_label} ({confidence:.2f})")
+        if mhd:
+            st.session_state.mhd = mhd
+            st.success(f"MHD erkannt: {mhd}")
         else:
-            st.info("ℹ️ Bereits zuletzt hinzugefügt – kein Duplikat")
+            st.warning("Kein MHD gefunden")
 
-    else:
-        st.warning("❌ Kein sicheres Lebensmittel erkannt")
+    # Anzeige
+    if st.session_state.mhd:
+        st.info(f"📅 MHD: {st.session_state.mhd}")
+
+    # -----------------------------
+    # HINZUFÜGEN BUTTON
+    # -----------------------------
+    if st.button("➕ Zum Inventar hinzufügen"):
+        now = datetime.now() + timedelta(hours=2)  # 🔥 +2 Stunden
+
+        st.session_state.inventory.append({
+            "Lebensmittel": st.session_state.detected_item,
+            "MHD": st.session_state.mhd if st.session_state.mhd else "unbekannt",
+            "Hinzugefügt": now.strftime("%Y-%m-%d %H:%M")
+        })
+
+        st.success("✅ Hinzugefügt!")
+
+        # reset
+        st.session_state.detected_item = None
+        st.session_state.mhd = None
 
 # -----------------------------
 # INVENTAR
@@ -97,13 +136,14 @@ if st.session_state.inventory:
     df = pd.DataFrame(st.session_state.inventory)
 
     for i, row in df.iterrows():
-        col1, col2, col3 = st.columns([3, 3, 1])
+        col1, col2, col3, col4 = st.columns([3, 2, 2, 1])
 
         col1.write(row["Lebensmittel"])
-        col2.write(row["Hinzugefügt am"])
+        col2.write(f"MHD: {row['MHD']}")
+        col3.write(row["Hinzugefügt"])
 
-        if col3.button("❌", key=f"delete_{i}"):
+        if col4.button("❌", key=f"del_{i}"):
             st.session_state.inventory.pop(i)
             st.rerun()
 else:
-    st.info("Inventar ist leer.")
+    st.info("Inventar ist leer")

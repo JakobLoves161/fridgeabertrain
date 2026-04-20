@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 import clip
 import easyocr
 import numpy as np
+import cv2
 import re
-import time
 
 # -----------------------------
 # MODELS
@@ -24,7 +24,7 @@ model, preprocess, ocr = load_models()
 # LABELS
 # -----------------------------
 labels = [
-   "ein frischer Apfel","eine reife Banane","eine Orange","eine Birne",
+        "ein frischer Apfel","eine reife Banane","eine Orange","eine Birne",
     "eine Tomate","eine Gurke","eine Paprika","eine Karotte","eine Kartoffel",
     "eine Zwiebel","eine Knoblauchknolle","ein Brokkoli","ein Blumenkohl",
     "ein Salatkopf","eine Zucchini","eine Aubergine",
@@ -48,107 +48,105 @@ text = clip.tokenize(labels)
 if "inventory" not in st.session_state:
     st.session_state.inventory = []
 
-if "detected_item" not in st.session_state:
-    st.session_state.detected_item = None
+if "food_item" not in st.session_state:
+    st.session_state.food_item = None
 
-if "mhd" not in st.session_state:
-    st.session_state.mhd = None
+if "mhd_value" not in st.session_state:
+    st.session_state.mhd_value = None
 
 # -----------------------------
-# FUNCTIONS
+# OCR FUNCTION (IMPROVED)
 # -----------------------------
 def extract_mhd(image):
-    """OCR + MHD extraction"""
-    image_np = np.array(image)
+    img = np.array(image)
 
-    result = ocr.readtext(image_np)
+    # 🔥 preprocessing für bessere OCR
+    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    gray = cv2.equalizeHist(gray)
+    gray = cv2.GaussianBlur(gray, (3, 3), 0)
+
+    result = ocr.readtext(gray)
 
     text = " ".join([r[1] for r in result])
 
     match = re.search(
-        r"(\d{2}\.\d{2}\.\d{4})|(\d{4}-\d{2}-\d{2})",
+        r"(\d{2}[.\-/]\d{2}[.\-/]\d{2,4})|(\d{4}[.\-/]\d{2}[.\-/]\d{2})",
         text
     )
 
     return match.group() if match else None
 
-def loading(text="⏳ KI verarbeitet Bild..."):
-    with st.spinner(text):
-        time.sleep(1)
-
 # -----------------------------
 # UI
 # -----------------------------
-st.title("🧊 Digitaler Kühlschrank KI")
+st.title("🧊 Smart Kühlschrank (2-Bild KI System)")
 
-uploaded_file = st.file_uploader("Bild hochladen", type=["jpg", "png"])
+st.markdown("## 📸 Schritt 1: Lebensmittel erkennen")
+food_image = st.file_uploader("Bild vom Lebensmittel", type=["jpg", "png"], key="food")
 
 # -----------------------------
-# IMAGE PROCESSING
+# FOOD DETECTION
 # -----------------------------
-if uploaded_file:
-    image = Image.open(uploaded_file)
-    st.image(image, use_column_width=True)
+if food_image:
+    image1 = Image.open(food_image)
+    st.image(image1, caption="Lebensmittel Bild")
 
-    # -------------------------
-    # FOOD DETECTION BUTTON
-    # -------------------------
     if st.button("🔍 Lebensmittel erkennen"):
-        loading()
-
-        img = preprocess(image).unsqueeze(0)
+        img = preprocess(image1).unsqueeze(0)
 
         with torch.no_grad():
             logits, _ = model(img, text)
             probs = logits.softmax(dim=-1).cpu().numpy()[0]
 
         best_index = probs.argmax()
-        best_label = labels[best_index]
+        st.session_state.food_item = labels[best_index]
 
-        st.session_state.detected_item = best_label
-
-    # -------------------------
-    # SHOW RESULT
-    # -------------------------
-    if st.session_state.detected_item:
-        st.success(f"🍎 Erkannt: {st.session_state.detected_item}")
-
-        # -------------------------
-        # MHD SCAN
-        # -------------------------
-        if st.button("📅 MHD scannen"):
-            loading("📅 MHD wird erkannt...")
-
-            mhd = extract_mhd(image)
-
-            if mhd:
-                st.session_state.mhd = mhd
-                st.success(f"📅 MHD erkannt: {mhd}")
-            else:
-                st.warning("❌ Kein MHD gefunden")
-
-        if st.session_state.mhd:
-            st.info(f"📅 MHD: {st.session_state.mhd}")
-
-        # -------------------------
-        # ADD TO INVENTORY
-        # -------------------------
-        if st.button("➕ Zum Inventar hinzufügen"):
-            now = datetime.now() + timedelta(hours=2)
-
-            st.session_state.inventory.append({
-                "Lebensmittel": st.session_state.detected_item,
-                "MHD": st.session_state.mhd if st.session_state.mhd else "unbekannt",
-                "Hinzugefügt": now.strftime("%Y-%m-%d %H:%M")
-            })
-
-            st.success("✅ Erfolgreich hinzugefügt!")
-
-            st.session_state.detected_item = None
-            st.session_state.mhd = None
+    if st.session_state.food_item:
+        st.success(f"🍎 Erkannt: {st.session_state.food_item}")
 
 # -----------------------------
-# INVENTORY
+# STEP 2: MHD IMAGE
+# -----------------------------
+st.markdown("## 📅 Schritt 2: MHD scannen")
+
+mhd_image = st.file_uploader("Bild vom MHD (Verpackung)", type=["jpg", "png"], key="mhd")
+
+if mhd_image:
+    image2 = Image.open(mhd_image)
+    st.image(image2, caption="MHD Bild")
+
+    if st.button("📅 MHD erkennen"):
+        mhd = extract_mhd(image2)
+
+        if mhd:
+            st.session_state.mhd_value = mhd
+            st.success(f"📅 MHD erkannt: {mhd}")
+        else:
+            st.warning("❌ Kein MHD gefunden")
+
+# -----------------------------
+# ADD TO INVENTORY
+# -----------------------------
+st.markdown("## ➕ Inventar speichern")
+
+if st.session_state.food_item:
+
+    if st.button("➕ Zum Inventar hinzufügen"):
+        now = datetime.now() + timedelta(hours=2)
+
+        st.session_state.inventory.append({
+            "Lebensmittel": st.session_state.food_item,
+            "MHD": st.session_state.mhd_value if st.session_state.mhd_value else "unbekannt",
+            "Hinzugefügt": now.strftime("%Y-%m-%d %H:%M")
+        })
+
+        st.success("✅ Gespeichert!")
+
+        st.session_state.food_item = None
+        st.session_state.mhd_value = None
+
+# -----------------------------
+# INVENTAR
 # -----------------------------
 st.subheader("📦 Inventar")
 

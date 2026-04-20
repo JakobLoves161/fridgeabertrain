@@ -19,7 +19,6 @@ model, preprocess = load_model()
 # Labels
 # -----------------------------
 labels = [
-  labels = [
     "ein frischer Apfel",
     "eine reife Banane",
     "eine Orange",

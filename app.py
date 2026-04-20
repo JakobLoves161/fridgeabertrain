@@ -16,12 +16,19 @@ def load_model():
 model, preprocess = load_model()
 
 # -----------------------------
-# Klassen definieren (anpassbar!)
+# Labels
 # -----------------------------
 labels = [
-    "Apfel", "Banane", "Milch", "Käse",
-    "Joghurt", "Tomate", "Gurke",
-    "Fleisch", "Eier", "Butter",
+    "ein Apfel",
+    "eine Banane",
+    "eine Milchpackung",
+    "ein Stück Käse",
+    "ein Joghurt",
+    "eine Tomate",
+    "eine Gurke",
+    "Fleisch",
+    "Eier",
+    "Butter"
 ]
 
 text = clip.tokenize(labels)
@@ -31,6 +38,9 @@ text = clip.tokenize(labels)
 # -----------------------------
 if "inventory" not in st.session_state:
     st.session_state.inventory = []
+
+if "detected_item" not in st.session_state:
+    st.session_state.detected_item = None
 
 # -----------------------------
 # UI
@@ -43,31 +53,35 @@ if uploaded_file:
     image = Image.open(uploaded_file)
     st.image(image, caption="Bild", use_column_width=True)
 
+    # 🔍 ERKENNEN
     if st.button("🔍 Lebensmittel erkennen"):
         img = preprocess(image).unsqueeze(0)
 
         with torch.no_grad():
-            image_features = model.encode_image(img)
-            text_features = model.encode_text(text)
-
             logits_per_image, _ = model(img, text)
             probs = logits_per_image.softmax(dim=-1).cpu().numpy()
 
         predicted_index = probs.argmax()
         detected_item = labels[predicted_index]
 
-        st.success(f"Erkannt: {detected_item}")
+        st.session_state.detected_item = detected_item
 
+    # Anzeige des erkannten Items
+    if st.session_state.detected_item:
+        st.success(f"Erkannt: {st.session_state.detected_item}")
+
+        # ➕ HINZUFÜGEN (jetzt funktioniert!)
         if st.button("➕ Zum Inventar hinzufügen"):
             st.session_state.inventory.append({
-                "Lebensmittel": detected_item,
+                "Lebensmittel": st.session_state.detected_item,
                 "Hinzugefügt am": datetime.now().strftime("%Y-%m-%d %H:%M")
             })
 
             st.success("✅ Hinzugefügt!")
+            st.session_state.detected_item = None  # reset
 
 # -----------------------------
-# Inventar
+# Inventar anzeigen
 # -----------------------------
 st.subheader("📦 Inventar")
 
@@ -80,7 +94,7 @@ if st.session_state.inventory:
         col1.write(row["Lebensmittel"])
         col2.write(row["Hinzugefügt am"])
 
-        if col3.button("❌", key=i):
+        if col3.button("❌", key=f"delete_{i}"):
             st.session_state.inventory.pop(i)
             st.rerun()
 else:

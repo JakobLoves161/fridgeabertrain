@@ -6,9 +6,10 @@ from datetime import datetime, timedelta
 import clip
 import easyocr
 import re
+import time
 
 # -----------------------------
-# MODELLS
+# MODELS
 # -----------------------------
 @st.cache_resource
 def load_models():
@@ -22,6 +23,7 @@ model, preprocess, ocr = load_models()
 # LABELS
 # -----------------------------
 labels = [
+    
    "ein frischer Apfel","eine reife Banane","eine Orange","eine Birne",
     "eine Tomate","eine Gurke","eine Paprika","eine Karotte","eine Kartoffel",
     "eine Zwiebel","eine Knoblauchknolle","ein Brokkoli","ein Blumenkohl",
@@ -56,76 +58,90 @@ if "mhd" not in st.session_state:
 # FUNCTIONS
 # -----------------------------
 def extract_mhd(image):
-    """OCR + Datumserkennung"""
     result = ocr.readtext(image)
-
     text = " ".join([r[1] for r in result])
 
-    # typische Datumsformate
     match = re.search(r"(\d{2}\.\d{2}\.\d{4})|(\d{4}-\d{2}-\d{2})", text)
 
-    if match:
-        return match.group()
-    return None
+    return match.group() if match else None
 
 # -----------------------------
 # UI
 # -----------------------------
-st.title("🧊 Digitaler Kühlschrank (CLIP + MHD Scanner)")
+st.title("🧊 Digitaler Kühlschrank")
 
 uploaded_file = st.file_uploader("Bild hochladen", type=["jpg", "png"])
 
 # -----------------------------
-# ERKENNUNG
+# LOADING ANIMATION WRAPPER
+# -----------------------------
+def loading():
+    with st.spinner("⏳ KI analysiert Bild... bitte warten"):
+        time.sleep(1)
+
+# -----------------------------
+# MAIN LOGIC
 # -----------------------------
 if uploaded_file:
     image = Image.open(uploaded_file)
     st.image(image, use_column_width=True)
 
-    img_tensor = preprocess(image).unsqueeze(0)
+    # -------------------------
+    # BUTTON: ERKENNEN
+    # -------------------------
+    if st.button("🔍 Lebensmittel erkennen"):
+        loading()
 
-    with torch.no_grad():
-        logits, _ = model(img_tensor, text)
-        probs = logits.softmax(dim=-1).cpu().numpy()[0]
+        img = preprocess(image).unsqueeze(0)
 
-    best_index = probs.argmax()
-    st.session_state.detected_item = labels[best_index]
+        with torch.no_grad():
+            logits, _ = model(img, text)
+            probs = logits.softmax(dim=-1).cpu().numpy()[0]
 
-    st.success(f"Erkannt: {st.session_state.detected_item}")
+        best_index = probs.argmax()
+        best_label = labels[best_index]
 
-    # -----------------------------
-    # MHD SCAN
-    # -----------------------------
-    if st.button("📅 MHD scannen"):
-        mhd = extract_mhd(uploaded_file)
+        st.session_state.detected_item = best_label
 
-        if mhd:
-            st.session_state.mhd = mhd
-            st.success(f"MHD erkannt: {mhd}")
-        else:
-            st.warning("Kein MHD gefunden")
+    # -------------------------
+    # RESULT
+    # -------------------------
+    if st.session_state.detected_item:
+        st.success(f"🍎 Erkannt: {st.session_state.detected_item}")
 
-    # Anzeige
-    if st.session_state.mhd:
-        st.info(f"📅 MHD: {st.session_state.mhd}")
+        # -------------------------
+        # MHD SCAN BUTTON
+        # -------------------------
+        if st.button("📅 MHD scannen"):
+            loading()
 
-    # -----------------------------
-    # HINZUFÜGEN BUTTON
-    # -----------------------------
-    if st.button("➕ Zum Inventar hinzufügen"):
-        now = datetime.now() + timedelta(hours=2)  # 🔥 +2 Stunden
+            mhd = extract_mhd(uploaded_file)
 
-        st.session_state.inventory.append({
-            "Lebensmittel": st.session_state.detected_item,
-            "MHD": st.session_state.mhd if st.session_state.mhd else "unbekannt",
-            "Hinzugefügt": now.strftime("%Y-%m-%d %H:%M")
-        })
+            if mhd:
+                st.session_state.mhd = mhd
+                st.success(f"📅 MHD: {mhd}")
+            else:
+                st.warning("Kein MHD gefunden")
 
-        st.success("✅ Hinzugefügt!")
+        if st.session_state.mhd:
+            st.info(f"MHD gespeichert: {st.session_state.mhd}")
 
-        # reset
-        st.session_state.detected_item = None
-        st.session_state.mhd = None
+        # -------------------------
+        # ADD BUTTON
+        # -------------------------
+        if st.button("➕ Zum Inventar hinzufügen"):
+            now = datetime.now() + timedelta(hours=2)
+
+            st.session_state.inventory.append({
+                "Lebensmittel": st.session_state.detected_item,
+                "MHD": st.session_state.mhd if st.session_state.mhd else "unbekannt",
+                "Hinzugefügt": now.strftime("%Y-%m-%d %H:%M")
+            })
+
+            st.success("✅ Hinzugefügt!")
+
+            st.session_state.detected_item = None
+            st.session_state.mhd = None
 
 # -----------------------------
 # INVENTAR

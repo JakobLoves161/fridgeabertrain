@@ -74,7 +74,6 @@ labels = [
     "eine Verpackung Tiefkühlkost",
     "eine Packung Chips"
 ]
-]
 
 text = clip.tokenize(labels)
 

@@ -16,63 +16,23 @@ def load_model():
 model, preprocess = load_model()
 
 # -----------------------------
-# Labels
+# Labels (50 Lebensmittel)
 # -----------------------------
 labels = [
-    "ein frischer Apfel",
-    "eine reife Banane",
-    "eine Orange",
-    "eine Birne",
-    "eine Tomate",
-    "eine Gurke",
-    "eine Paprika",
-    "eine Karotte",
-    "eine Kartoffel",
-    "eine Zwiebel",
-    "eine Knoblauchknolle",
-    "ein Brokkoli",
-    "ein Blumenkohl",
-    "ein Salatkopf",
-    "eine Zucchini",
-    "eine Aubergine",
-
-    "ein Stück Käse",
-    "eine Milchpackung",
-    "ein Joghurtbecher",
-    "ein Stück Butter",
-    "ein Ei",
-    "ein rohes Fleischstück",
-    "ein Hähnchenfilet",
-    "ein Fischfilet",
-    "eine Wurst",
-    "ein Schinken",
-
-    "eine Brotscheibe",
-    "ein ganzes Brot",
-    "ein Brötchen",
-    "ein Croissant",
-    "eine Pizza",
-    "ein Sandwich",
-    "ein Burger",
-    "eine Portion Nudeln",
-    "eine Portion Reis",
-
-    "eine Flasche Wasser",
-    "eine Saftflasche",
-    "eine Cola Flasche",
-    "eine Bierflasche",
-    "eine Weinflasche",
-
-    "eine Tafel Schokolade",
-    "ein Keks",
-    "ein Stück Kuchen",
-    "ein Eis",
+    "ein frischer Apfel","eine reife Banane","eine Orange","eine Birne",
+    "eine Tomate","eine Gurke","eine Paprika","eine Karotte","eine Kartoffel",
+    "eine Zwiebel","eine Knoblauchknolle","ein Brokkoli","ein Blumenkohl",
+    "ein Salatkopf","eine Zucchini","eine Aubergine",
+    "ein Stück Käse","eine Milchpackung","ein Joghurtbecher","ein Stück Butter",
+    "ein Ei","ein rohes Fleischstück","ein Hähnchenfilet","ein Fischfilet",
+    "eine Wurst","ein Schinken",
+    "eine Brotscheibe","ein ganzes Brot","ein Brötchen","ein Croissant",
+    "eine Pizza","ein Sandwich","ein Burger","eine Portion Nudeln","eine Portion Reis",
+    "eine Flasche Wasser","eine Saftflasche","eine Cola Flasche",
+    "eine Bierflasche","eine Weinflasche",
+    "eine Tafel Schokolade","ein Keks","ein Stück Kuchen","ein Eis",
     "ein Joghurt Dessert",
-
-    "eine Dose",
-    "eine Konservendose",
-    "eine Verpackung Tiefkühlkost",
-    "eine Packung Chips"
+    "eine Dose","eine Konservendose","eine Verpackung Tiefkühlkost","eine Packung Chips"
 ]
 
 text = clip.tokenize(labels)
@@ -83,46 +43,69 @@ text = clip.tokenize(labels)
 if "inventory" not in st.session_state:
     st.session_state.inventory = []
 
-if "detected_item" not in st.session_state:
-    st.session_state.detected_item = None
+if "detected_items" not in st.session_state:
+    st.session_state.detected_items = []
 
 # -----------------------------
-# UI
+# UI Styling (größerer Upload Bereich)
 # -----------------------------
+st.markdown("""
+    <style>
+    .upload-box {
+        border: 2px dashed #4CAF50;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        font-size: 18px;
+        margin-bottom: 20px;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 st.title("🧊 Digitaler Kühlschrank (CLIP AI)")
 
-uploaded_file = st.file_uploader("Bild hochladen", type=["jpg", "png"])
+st.markdown('<div class="upload-box">📸 Lade ein Bild deiner Lebensmittel hoch</div>', unsafe_allow_html=True)
 
+uploaded_file = st.file_uploader(" ", type=["jpg", "png"])
+
+# -----------------------------
+# Bild & Erkennung
+# -----------------------------
 if uploaded_file:
     image = Image.open(uploaded_file)
     st.image(image, caption="Bild", use_column_width=True)
 
-    # 🔍 ERKENNEN
     if st.button("🔍 Lebensmittel erkennen"):
         img = preprocess(image).unsqueeze(0)
 
         with torch.no_grad():
             logits_per_image, _ = model(img, text)
-            probs = logits_per_image.softmax(dim=-1).cpu().numpy()
+            probs = logits_per_image.softmax(dim=-1).cpu().numpy()[0]
 
-        predicted_index = probs.argmax()
-        detected_item = labels[predicted_index]
+        # 🔥 Top 5 Ergebnisse
+        top_k = 5
+        top_indices = probs.argsort()[-top_k:][::-1]
 
-        st.session_state.detected_item = detected_item
+        detected_items = [labels[i] for i in top_indices]
 
-    # Anzeige des erkannten Items
-    if st.session_state.detected_item:
-        st.success(f"Erkannt: {st.session_state.detected_item}")
+        st.session_state.detected_items = detected_items
 
-        # ➕ HINZUFÜGEN (jetzt funktioniert!)
-        if st.button("➕ Zum Inventar hinzufügen"):
-            st.session_state.inventory.append({
-                "Lebensmittel": st.session_state.detected_item,
-                "Hinzugefügt am": datetime.now().strftime("%Y-%m-%d %H:%M")
-            })
+    # Anzeige mehrerer Ergebnisse
+    if st.session_state.detected_items:
+        st.subheader("🔎 Erkannte Lebensmittel")
+
+        for item in st.session_state.detected_items:
+            st.write(f"• {item}")
+
+        if st.button("➕ Alle zum Inventar hinzufügen"):
+            for item in st.session_state.detected_items:
+                st.session_state.inventory.append({
+                    "Lebensmittel": item,
+                    "Hinzugefügt am": datetime.now().strftime("%Y-%m-%d %H:%M")
+                })
 
             st.success("✅ Hinzugefügt!")
-            st.session_state.detected_item = None  # reset
+            st.session_state.detected_items = []
 
 # -----------------------------
 # Inventar anzeigen

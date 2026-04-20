@@ -22,7 +22,7 @@ labels = [
     "ein frischer Apfel","eine reife Banane","eine Orange","eine Birne",
     "eine Tomate","eine Gurke","eine Paprika","eine Karotte","eine Kartoffel",
     "eine Zwiebel","eine Knoblauchknolle","ein Brokkoli","ein Blumenkohl",
-    "ein Salatkopf","eine Zucchini","eine Aubergine",
+    "ein Salatkopf","eine Zucchini","eine Aubergine", "ein Lauch",
     "ein Stück Käse","eine Milchpackung","ein Joghurtbecher","ein Stück Butter",
     "ein Ei","ein rohes Fleischstück","ein Hähnchenfilet","ein Fischfilet",
     "eine Wurst","ein Schinken",

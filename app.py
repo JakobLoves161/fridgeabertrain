@@ -16,7 +16,7 @@ def load_model():
 model, preprocess = load_model()
 
 # -----------------------------
-# Labels (50 Lebensmittel)
+# Labels
 # -----------------------------
 labels = [
     "ein frischer Apfel","eine reife Banane","eine Orange","eine Birne",
@@ -43,72 +43,53 @@ text = clip.tokenize(labels)
 if "inventory" not in st.session_state:
     st.session_state.inventory = []
 
-if "detected_items" not in st.session_state:
-    st.session_state.detected_items = []
+# -----------------------------
+# UI
+# -----------------------------
+st.title("🧊 Digitaler Kühlschrank (Auto AI)")
+
+uploaded_file = st.file_uploader("Bild hochladen", type=["jpg", "png"])
 
 # -----------------------------
-# UI Styling (größerer Upload Bereich)
-# -----------------------------
-st.markdown("""
-    <style>
-    .upload-box {
-        border: 2px dashed #4CAF50;
-        padding: 20px;
-        border-radius: 10px;
-        text-align: center;
-        font-size: 18px;
-        margin-bottom: 20px;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-st.title("🧊 Digitaler Kühlschrank (CLIP AI)")
-
-st.markdown('<div class="upload-box">📸 Lade ein Bild deiner Lebensmittel hoch</div>', unsafe_allow_html=True)
-
-uploaded_file = st.file_uploader(" ", type=["jpg", "png"])
-
-# -----------------------------
-# Bild & Erkennung
+# AUTOMATISCHE ERKENNUNG
 # -----------------------------
 if uploaded_file:
     image = Image.open(uploaded_file)
-    st.image(image, caption="Bild", use_column_width=True)
+    st.image(image, caption="Hochgeladenes Bild", use_column_width=True)
 
-    if st.button("🔍 Lebensmittel erkennen"):
-        img = preprocess(image).unsqueeze(0)
+    img = preprocess(image).unsqueeze(0)
 
-        with torch.no_grad():
-            logits_per_image, _ = model(img, text)
-            probs = logits_per_image.softmax(dim=-1).cpu().numpy()[0]
+    with torch.no_grad():
+        logits_per_image, _ = model(img, text)
+        probs = logits_per_image.softmax(dim=-1).cpu().numpy()[0]
 
-        # 🔥 Top 5 Ergebnisse
-        top_k = 5
-        top_indices = probs.argsort()[-top_k:][::-1]
+    # 🔥 BESTES ERGEBNIS
+    best_index = probs.argmax()
+    best_label = labels[best_index]
+    confidence = probs[best_index]
 
-        detected_items = [labels[i] for i in top_indices]
+    # 🔥 Nur hinzufügen wenn sinnvoll sicher
+    threshold = 0.20
 
-        st.session_state.detected_items = detected_items
+    if confidence > threshold:
+        item = {
+            "Lebensmittel": best_label,
+            "Hinzugefügt am": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "Sicherheit": round(float(confidence), 2)
+        }
 
-    # Anzeige mehrerer Ergebnisse
-    if st.session_state.detected_items:
-        st.subheader("🔎 Erkannte Lebensmittel")
+        # 🔥 Verhindert doppelte Einträge direkt nacheinander
+        if not st.session_state.inventory or st.session_state.inventory[-1]["Lebensmittel"] != best_label:
+            st.session_state.inventory.append(item)
+            st.success(f"✅ Erkannt & hinzugefügt: {best_label} ({confidence:.2f})")
+        else:
+            st.info("ℹ️ Bereits zuletzt hinzugefügt – kein Duplikat")
 
-        for item in st.session_state.detected_items:
-            st.write(f"• {item}")
-
-        if st.button("➕ Alle zum Inventar hinzufügen"):
-            for item in st.session_state.detected_items:
-                st.session_state.inventory.append({
-                    "Lebensmittel": item,
-                    "Hinzugefügt am": datetime.now().strftime("%Y-%m-%d %H:%M")
-                })
-
-            st.success("✅ Hinzugefügt!")
-            st.session_state.detected_items = []
+    else:
+        st.warning("❌ Kein sicheres Lebensmittel erkannt")
 
 # -----------------------------
-# Inventar anzeigen
+# INVENTAR
 # -----------------------------
 st.subheader("📦 Inventar")
 

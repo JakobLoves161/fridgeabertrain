@@ -22,7 +22,6 @@ labels = [
     "Apfel", "Banane", "Milch", "Käse",
     "Joghurt", "Tomate", "Gurke",
     "Fleisch", "Eier", "Butter",
-    "Gurke"
 ]
 
 text = clip.tokenize(labels)

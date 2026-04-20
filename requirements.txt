@@ -8,3 +8,4 @@ git+https://github.com/openai/CLIP.git
 pillow
 pandas
 numpy
+easyocr

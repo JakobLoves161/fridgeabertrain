@@ -23,20 +23,43 @@ model, preprocess, ocr = load_models()
 # LABELS
 # -----------------------------
 labels = [
-  "ein frischer Apfel","eine reife Banane","eine Orange","eine Birne",
+ # ---------------- OBST (1–20) ----------------
+    "ein Apfel","eine Banane","eine Orange","eine Birne","eine Erdbeere",
+    "eine Traube","eine Zitrone","eine Limette","eine Mango","eine Ananas",
+    "eine Wassermelone","eine Kirsche","ein Pfirsich","eine Nektarine",
+    "eine Heidelbeere","eine Himbeere","eine Brombeere","eine Kiwi",
+    "eine Granatapfel","eine Grapefruit",
+
+    # ---------------- GEMÜSE (21–45) ----------------
     "eine Tomate","eine Gurke","eine Paprika","eine Karotte","eine Kartoffel",
-    "eine Zwiebel","eine Knoblauchknolle","ein Brokkoli","ein Blumenkohl",
-    "ein Salatkopf","eine Zucchini","eine Aubergine",
-    "ein Stück Käse","eine Milchpackung","ein Joghurtbecher","ein Stück Butter",
-    "ein Ei","ein rohes Fleischstück","ein Hähnchenfilet","ein Fischfilet",
-    "eine Wurst","ein Schinken",
-    "eine Brotscheibe","ein ganzes Brot","ein Brötchen","ein Croissant",
-    "eine Pizza","ein Sandwich","ein Burger","eine Portion Nudeln","eine Portion Reis",
-    "eine Flasche Wasser","eine Saftflasche","eine Cola Flasche",
-    "eine Bierflasche","eine Weinflasche",
-    "eine Tafel Schokolade","ein Keks","ein Stück Kuchen","ein Eis",
-    "ein Joghurt Dessert", "eine Mango", "eine Papaya",
-    "eine Dose","eine Konservendose","eine Verpackung Tiefkühlkost","eine Packung Chips"
+    "eine Zwiebel","ein Knoblauch","ein Brokkoli","ein Blumenkohl","ein Salatkopf",
+    "eine Zucchini","eine Aubergine","ein Spinat","eine Avocado","ein Pilz",
+    "ein Maiskolben","eine Rote Bete","ein Sellerie","eine Lauchzwiebel","ein Kürbis",
+    "eine Süßkartoffel","ein Radieschen","eine Erbse","ein Kohlrabi","ein Rosenkohl",
+
+    # ---------------- MILCHPRODUKTE (46–55) ----------------
+    "ein Käse","eine Milchpackung","ein Joghurt","ein Quark","ein Frischkäse",
+    "ein Stück Butter","eine Sahne","ein Kefir","ein Pudding","ein Skyr",
+
+    # ---------------- FLEISCH & FISCH (56–70) ----------------
+    "ein Hähnchen","ein Hähnchenfilet","ein Rindfleisch","ein Schweinefleisch","ein Hackfleisch",
+    "ein Fischfilet","ein Lachs","eine Forelle","eine Wurst","ein Schinken",
+    "eine Salami","ein Schnitzel","eine Bratwurst","ein Steak","ein Thunfisch",
+
+    # ---------------- BACKWAREN (71–80) ----------------
+    "ein Brot","ein Brötchen","ein Baguette","eine Brezel","eine Pizza",
+    "ein Croissant","ein Toast","ein Sandwich","ein Donut","ein Muffin",
+
+    # ---------------- FERTIGGERICHTE (81–88) ----------------
+    "eine Tiefkühlpizza","eine Lasagne","eine Suppe","eine Nudelschale",
+    "eine Reisportion","ein Burger","ein Curry","eine Fertigmahlzeit",
+
+    # ---------------- GETRÄNKE (89–95) ----------------
+    "eine Wasserflasche","eine Saftflasche","eine Cola","eine Limonade",
+    "eine Bierflasche","eine Weinflasche","eine Milch",
+
+    # ---------------- SNACKS & SÜSSES (96–100) ----------------
+    "eine Schokolade","ein Keks","ein Riegel","eine Packung Chips","ein Eis", "eine Mango", "eine Papaya"
 ]
 
 text = clip.tokenize(labels)

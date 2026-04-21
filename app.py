@@ -59,7 +59,7 @@ labels = [
     "eine Bierflasche","eine Weinflasche","eine Milch",
 
     # ---------------- SNACKS & SÜSSES (96–100) ----------------
-    "eine Schokolade","ein Keks","ein Riegel","eine Packung Chips","ein Eis", "eine Mango", "eine Papaya"
+    "eine Schokolade","ein Keks","ein Riegel","eine Packung Chips","ein Eis", "eine Papaya"
 ]
 
 text = clip.tokenize(labels)

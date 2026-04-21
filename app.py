@@ -21,9 +21,47 @@ def load_models():
 model, preprocess, ocr = load_models()
 
 # -----------------------------
-# LABELS (gekürzt hier – du kannst deine 100 behalten)
+# LABELS (gekürzt – dein 100er Set kannst du wieder einsetzen)
 # -----------------------------
-labels = ["ein Apfel","eine Banane","eine Gurke","eine Tomate","ein Käse","ein Brot"]
+labels = [
+    # ---------------- OBST (1–20) ----------------
+    "ein Apfel","eine Banane","eine Orange","eine Birne","eine Erdbeere",
+    "eine Traube","eine Zitrone","eine Limette","eine Mango","eine Ananas",
+    "eine Wassermelone","eine Kirsche","ein Pfirsich","eine Nektarine",
+    "eine Heidelbeere","eine Himbeere","eine Brombeere","eine Kiwi",
+    "eine Granatapfel","eine Grapefruit",
+
+    # ---------------- GEMÜSE (21–45) ----------------
+    "eine Tomate","eine Gurke","eine Paprika","eine Karotte","eine Kartoffel",
+    "eine Zwiebel","ein Knoblauch","ein Brokkoli","ein Blumenkohl","ein Salatkopf",
+    "eine Zucchini","eine Aubergine","ein Spinat","eine Avocado","ein Pilz",
+    "ein Maiskolben","eine Rote Bete","ein Sellerie","eine Lauchzwiebel","ein Kürbis",
+    "eine Süßkartoffel","ein Radieschen","eine Erbse","ein Kohlrabi","ein Rosenkohl",
+
+    # ---------------- MILCHPRODUKTE (46–55) ----------------
+    "ein Käse","eine Milchpackung","ein Joghurt","ein Quark","ein Frischkäse",
+    "ein Stück Butter","eine Sahne","ein Kefir","ein Pudding","ein Skyr",
+
+    # ---------------- FLEISCH & FISCH (56–70) ----------------
+    "ein Hähnchen","ein Hähnchenfilet","ein Rindfleisch","ein Schweinefleisch","ein Hackfleisch",
+    "ein Fischfilet","ein Lachs","eine Forelle","eine Wurst","ein Schinken",
+    "eine Salami","ein Schnitzel","eine Bratwurst","ein Steak","ein Thunfisch",
+
+    # ---------------- BACKWAREN (71–80) ----------------
+    "ein Brot","ein Brötchen","ein Baguette","eine Brezel","eine Pizza",
+    "ein Croissant","ein Toast","ein Sandwich","ein Donut","ein Muffin",
+
+    # ---------------- FERTIGGERICHTE (81–88) ----------------
+    "eine Tiefkühlpizza","eine Lasagne","eine Suppe","eine Nudelschale",
+    "eine Reisportion","ein Burger","ein Curry","eine Fertigmahlzeit",
+
+    # ---------------- GETRÄNKE (89–95) ----------------
+    "eine Wasserflasche","eine Saftflasche","eine Cola","eine Limonade",
+    "eine Bierflasche","eine Weinflasche","eine Milch",
+
+    # ---------------- SNACKS & SÜSSES (96–100) ----------------
+    "eine Schokolade","ein Keks","ein Riegel","eine Packung Chips","ein Eis"
+]
 text = clip.tokenize(labels)
 
 # -----------------------------
@@ -62,22 +100,35 @@ def extract_mhd(image):
 # -----------------------------
 st.title("🧊 Smart Kühlschrank KI")
 
-st.info("📸 Tipp: Gute Beleuchtung + nahes Foto für bessere Ergebnisse.")
-
-# -----------------------------
-# STEP 1: FOOD (KAMERA)
-# -----------------------------
+# =========================================================
+# 📸 FOOD ERKENNUNG (TAB UI)
+# =========================================================
 st.subheader("📸 Lebensmittel erkennen")
 
-camera_image = st.camera_input("📷 Foto aufnehmen")
+food_tab1, food_tab2, food_tab3 = st.tabs(["📷 Kamera", "📁 Upload", "✏️ Manuell"])
 
-uploaded_image = st.file_uploader("ODER Bild hochladen", type=["jpg","png"])
+image = None
 
-image = camera_image or uploaded_image
+with food_tab1:
+    cam = st.camera_input("Foto aufnehmen (Food)")
+    if cam:
+        image = Image.open(cam)
 
+with food_tab2:
+    up = st.file_uploader("Bild hochladen (Food)", type=["jpg","png"])
+    if up:
+        image = Image.open(up)
+
+with food_tab3:
+    manual_food = st.text_input("Lebensmittel eingeben (z.B. Apfel)")
+    if st.button("Übernehmen (Food)"):
+        if manual_food:
+            st.session_state.food_item = manual_food
+            st.success(f"Manuell gesetzt: {manual_food}")
+
+# KI FOOD ERKENNUNG
 if image:
-    image = Image.open(image)
-    st.image(image, caption="Eingabe Bild")
+    st.image(image, caption="Food Bild")
 
     if st.button("🔍 Lebensmittel erkennen"):
         img = preprocess(image).unsqueeze(0)
@@ -91,41 +142,52 @@ if image:
     if st.session_state.food_item:
         st.success(f"🍎 Erkannt: {st.session_state.food_item}")
 
-# -----------------------------
-# MANUELLE EINGABE (FOOD)
-# -----------------------------
-st.markdown("### ✏️ Lebensmittel manuell eingeben (Fallback)")
+# =========================================================
+# 📅 MHD ERKENNUNG (TAB UI)
+# =========================================================
+st.subheader("📅 MHD erkennen")
 
-manual_food = st.text_input("z.B. Apfel, Gurke, Käse")
+mhd_tab1, mhd_tab2 = st.tabs(["📷 Kamera", "📁 Upload"])
 
-if st.button("📥 Lebensmittel übernehmen"):
-    if manual_food:
-        st.session_state.food_item = manual_food
-        st.success(f"Manuell gesetzt: {manual_food}")
+mhd_image = None
 
-# -----------------------------
-# STEP 2: MHD
-# -----------------------------
-st.subheader("📅 MHD scannen")
+with mhd_tab1:
+    cam_mhd = st.camera_input("Foto aufnehmen (MHD)")
+    if cam_mhd:
+        mhd_image = Image.open(cam_mhd)
 
-mhd_image = st.file_uploader("Bild vom MHD", type=["jpg","png"], key="mhd")
+with mhd_tab2:
+    up_mhd = st.file_uploader("Bild hochladen (MHD)", type=["jpg","png"], key="mhd")
+    if up_mhd:
+        mhd_image = Image.open(up_mhd)
 
 if mhd_image:
-    image2 = Image.open(mhd_image)
-    st.image(image2, caption="MHD Bild")
+    st.image(mhd_image, caption="MHD Bild")
 
     if st.button("📅 MHD erkennen"):
-        st.session_state.mhd_value = extract_mhd(image2)
+        img = np.array(mhd_image)
 
-        if st.session_state.mhd_value:
-            st.success(f"📅 MHD: {st.session_state.mhd_value}")
+        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+        clahe = cv2.createCLAHE(3.0, (8,8))
+        gray = clahe.apply(gray)
+
+        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+        result = ocr.readtext(thresh, detail=0)
+        text = " ".join(result)
+
+        match = re.search(r"\d{2}[.\-/]\d{2}[.\-/]\d{2,4}", text)
+
+        if match:
+            st.session_state.mhd_value = match.group()
+            st.success(f"📅 MHD: {match.group()}")
         else:
-            st.warning("Kein MHD erkannt")
+            st.warning("❌ Kein MHD erkannt")
 
-# -----------------------------
-# ADD TO INVENTORY
-# -----------------------------
-st.subheader("➕ Zum Inventar hinzufügen")
+# =========================================================
+# ➕ INVENTAR
+# =========================================================
+st.subheader("➕ Inventar speichern")
 
 if st.session_state.food_item:
 
@@ -143,22 +205,22 @@ if st.session_state.food_item:
         st.session_state.food_item = None
         st.session_state.mhd_value = None
 
-# -----------------------------
-# INVENTAR
-# -----------------------------
+# =========================================================
+# 📦 INVENTAR
+# =========================================================
 st.subheader("📦 Inventar")
 
 if st.session_state.inventory:
     df = pd.DataFrame(st.session_state.inventory)
 
     for i, row in df.iterrows():
-        col1, col2, col3, col4 = st.columns([3,2,2,1])
+        c1, c2, c3, c4 = st.columns([3,2,2,1])
 
-        col1.write(row["Lebensmittel"])
-        col2.write(row["MHD"])
-        col3.write(row["Hinzugefügt"])
+        c1.write(row["Lebensmittel"])
+        c2.write(row["MHD"])
+        c3.write(row["Hinzugefügt"])
 
-        if col4.button("❌", key=i):
+        if c4.button("❌", key=i):
             st.session_state.inventory.pop(i)
             st.rerun()
 else:

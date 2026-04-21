@@ -7,6 +7,7 @@ import clip
 import numpy as np
 import cv2
 import re
+import easyocr
 
 # -----------------------------
 # MODELS
@@ -18,50 +19,40 @@ def load_models():
 
 model, preprocess = load_models()
 
-# OCR (lazy import optional, falls du easyocr nutzt)
-import easyocr
 ocr = easyocr.Reader(['de', 'en'])
 
 # -----------------------------
-# 🧠 100 FOOD LABELS
+# 🧠 100 LABELS (deine Food-Klassen)
 # -----------------------------
 labels = [
-    # OBST
     "ein Apfel","eine Banane","eine Orange","eine Birne","eine Erdbeere",
     "eine Traube","eine Zitrone","eine Limette","eine Mango","eine Ananas",
     "eine Wassermelone","eine Kirsche","ein Pfirsich","eine Nektarine",
     "eine Heidelbeere","eine Himbeere","eine Brombeere","eine Kiwi",
     "eine Granatapfel","eine Grapefruit",
 
-    # GEMÜSE
     "eine Tomate","eine Gurke","eine Paprika","eine Karotte","eine Kartoffel",
     "eine Zwiebel","ein Knoblauch","ein Brokkoli","ein Blumenkohl","ein Salatkopf",
     "eine Zucchini","eine Aubergine","ein Spinat","eine Avocado","ein Pilz",
     "ein Maiskolben","eine Rote Bete","ein Sellerie","eine Lauchzwiebel","ein Kürbis",
     "eine Süßkartoffel","ein Radieschen","eine Erbse","ein Kohlrabi","ein Rosenkohl",
 
-    # MILCHPRODUKTE
     "ein Käse","eine Milchpackung","ein Joghurt","ein Quark","ein Frischkäse",
-    "ein Stück Butter","eine Sahne","ein Kefir","ein Pudding","ein Skyr",
+    "ein Stück Butter","eine Sahne", "ein Pudding",
 
-    # FLEISCH & FISCH
     "ein Hähnchen","ein Hähnchenfilet","ein Rindfleisch","ein Schweinefleisch","ein Hackfleisch",
     "ein Fischfilet","ein Lachs","eine Forelle","eine Wurst","ein Schinken",
     "eine Salami","ein Schnitzel","eine Bratwurst","ein Steak","ein Thunfisch",
 
-    # BACKWAREN
     "ein Brot","ein Brötchen","ein Baguette","eine Brezel","eine Pizza",
     "ein Croissant","ein Toast","ein Sandwich","ein Donut","ein Muffin",
 
-    # FERTIGGERICHTE
     "eine Tiefkühlpizza","eine Lasagne","eine Suppe","eine Nudelschale",
     "eine Reisportion","ein Burger","ein Curry","eine Fertigmahlzeit",
 
-    # GETRÄNKE
     "eine Wasserflasche","eine Saftflasche","eine Cola","eine Limonade",
     "eine Bierflasche","eine Weinflasche","eine Milch",
 
-    # SNACKS
     "eine Schokolade","ein Keks","ein Riegel","eine Packung Chips","ein Eis"
 ]
 
@@ -103,10 +94,10 @@ def extract_mhd(image):
 # -----------------------------
 st.title("🧊 Smart Kühlschrank KI")
 
-st.info("📸 Tipp: Gute Beleuchtung & nahes Foto verbessern die Erkennung stark.")
+st.info("📸 Tipp: Gute Beleuchtung + Nahaufnahme verbessert die Erkennung deutlich.")
 
 # =========================================================
-# 🍎 FOOD ERKENNUNG
+# 🍎 FOOD ERKENNUNG (TAB UI FIXED)
 # =========================================================
 st.subheader("📸 Lebensmittel erkennen")
 
@@ -120,17 +111,21 @@ with food_tab1:
         image = Image.open(cam)
 
 with food_tab2:
-    up = st.file_uploader("Bild hochladen", type=["jpg","png"])
+    up = st.file_uploader("Bild hochladen", type=["jpg", "png"])
     if up:
         image = Image.open(up)
 
 with food_tab3:
     manual_food = st.text_input("Lebensmittel eingeben")
-    if st.button("Food übernehmen"):
+
+    if st.button("✏️ Übernehmen"):
         if manual_food:
             st.session_state.food_item = manual_food
             st.success(f"Manuell gesetzt: {manual_food}")
+        else:
+            st.warning("Bitte etwas eingeben")
 
+# KI ERKENNUNG
 if image:
     st.image(image, caption="Food Bild")
 
@@ -151,7 +146,7 @@ if image:
 # =========================================================
 st.subheader("📅 MHD erkennen")
 
-mhd_tab1, mhd_tab2 = st.tabs(["📷 Kamera", "📁 Upload"])
+mhd_tab1, mhd_tab2, mhd_tab3 = st.tabs(["📷 Kamera", "📁 Upload", "✏️ Manuell"])
 
 mhd_image = None
 
@@ -165,6 +160,17 @@ with mhd_tab2:
     if up_mhd:
         mhd_image = Image.open(up_mhd)
 
+with mhd_tab3:
+    manual_mhd = st.text_input("MHD eingeben (z.B. 25.12.2026)")
+
+    if st.button("📥 MHD übernehmen"):
+        if manual_mhd:
+            st.session_state.mhd_value = manual_mhd
+            st.success(f"Manuell gesetzt: {manual_mhd}")
+        else:
+            st.warning("Bitte Datum eingeben")
+
+# OCR MHD
 if mhd_image:
     st.image(mhd_image, caption="MHD Bild")
 
@@ -175,18 +181,6 @@ if mhd_image:
             st.success(f"📅 MHD: {st.session_state.mhd_value}")
         else:
             st.warning("Kein MHD erkannt")
-
-# -----------------------------
-# ✏️ MANUELLES MHD
-# -----------------------------
-st.markdown("### ✏️ MHD manuell eingeben")
-
-manual_mhd = st.text_input("z.B. 25.12.2026")
-
-if st.button("MHD übernehmen"):
-    if manual_mhd:
-        st.session_state.mhd_value = manual_mhd
-        st.success(f"Manuell gesetzt: {manual_mhd}")
 
 # =========================================================
 # ➕ INVENTAR

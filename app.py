@@ -29,7 +29,7 @@ model, preprocess = load_models()
 ocr = easyocr.Reader(['de', 'en'])
 
 # -----------------------------
-# 100 LABELS
+# LABELS
 # -----------------------------
 labels = [
     "ein Apfel","eine Banane","eine Orange","eine Birne","eine Erdbeere",
@@ -41,26 +41,16 @@ labels = [
     "eine Tomate","eine Gurke","eine Paprika","eine Karotte","eine Kartoffel",
     "eine Zwiebel","ein Knoblauch","ein Brokkoli","ein Blumenkohl","ein Salatkopf",
     "eine Zucchini","eine Aubergine","ein Spinat","eine Avocado","ein Pilz",
-    "ein Maiskolben","eine Rote Bete","ein Sellerie","eine Lauchzwiebel","ein Kürbis",
-    "eine Süßkartoffel","ein Radieschen","eine Erbse","ein Kohlrabi","ein Rosenkohl",
 
     "ein Käse","eine Milchpackung","ein Joghurt","ein Quark","ein Frischkäse",
-    "ein Stück Butter","eine Sahne", "ein Pudding",
+    "ein Stück Butter","eine Sahne","ein Pudding",
 
-    "ein Hähnchen","ein Hähnchenfilet","ein Rindfleisch","ein Schweinefleisch","ein Hackfleisch",
-    "ein Fischfilet","ein Lachs","eine Forelle","eine Wurst","ein Schinken",
-    "eine Salami","ein Schnitzel","eine Bratwurst","ein Steak","ein Thunfisch",
+    "ein Hähnchen","ein Rindfleisch","ein Schweinefleisch","ein Fischfilet",
+    "eine Wurst","ein Schinken","eine Salami",
 
-    "ein Brot","ein Brötchen","ein Baguette","eine Brezel","eine Pizza",
-    "ein Croissant","ein Toast","ein Sandwich","ein Donut","ein Muffin",
+    "ein Brot","ein Brötchen","eine Pizza","ein Croissant","ein Sandwich",
 
-    "eine Tiefkühlpizza","eine Lasagne","eine Suppe","eine Nudelschale",
-    "eine Reisportion","ein Burger","ein Curry","eine Fertigmahlzeit",
-
-    "eine Wasserflasche","eine Saftflasche","eine Cola","eine Limonade",
-    "eine Bierflasche","eine Weinflasche","eine Milch",
-
-    "eine Schokolade","ein Keks","ein Riegel","eine Packung Chips","ein Eis"
+    "eine Schokolade","ein Keks","eine Packung Chips","ein Eis"
 ]
 
 text_tokens = clip.tokenize(labels)
@@ -95,7 +85,7 @@ def extract_mhd(image):
 # -----------------------------
 # UI
 # -----------------------------
-st.title("🧊 Smart Kühlschrank KI (Supabase Edition)")
+st.title("🧊 Smart Kühlschrank KI (Supabase Fix)")
 
 # =========================================================
 # 🍎 FOOD
@@ -169,7 +159,7 @@ if mhd_image:
         st.session_state.mhd_value = extract_mhd(mhd_image)
 
 # =========================================================
-# ➕ SPEICHERN IN SUPABASE
+# ➕ SAFE SUPABASE INSERT (FIXED)
 # =========================================================
 st.subheader("➕ Speichern")
 
@@ -177,28 +167,33 @@ if st.session_state.food_item and st.button("In Datenbank speichern"):
 
     now = datetime.now() + timedelta(hours=2)
 
-    supabase.table("fridge_inventory").insert({
-        "food_name": st.session_state.food_item,
-        "mhd": st.session_state.mhd_value,
-        "added_at": now.isoformat()
-    }).execute()
+    try:
+        res = supabase.table("fridge_inventory").insert({
+            "food_name": st.session_state.food_item,
+            "mhd": st.session_state.mhd_value,
+            "added_at": now.isoformat()
+        }).execute()
 
-    st.success("Gespeichert in Supabase!")
+        st.success("Gespeichert in Supabase!")
 
-    st.session_state.food_item = None
-    st.session_state.mhd_value = None
+    except Exception as e:
+        st.error("❌ Supabase Fehler:")
+        st.code(str(e))
 
 # =========================================================
-# 📦 LOAD FROM SUPABASE
+# 📦 LOAD INVENTORY
 # =========================================================
 st.subheader("📦 Inventar")
 
-data = supabase.table("fridge_inventory").select("*").execute().data
+try:
+    data = supabase.table("fridge_inventory").select("*").execute().data
+except Exception as e:
+    st.error("Fehler beim Laden")
+    st.code(str(e))
+    data = []
 
-df = pd.DataFrame(data)
-
-if not df.empty:
-    for i, row in df.iterrows():
+if data:
+    for row in data:
         c1, c2, c3, c4 = st.columns([3,2,2,1])
 
         c1.write(row["food_name"])

@@ -29,7 +29,7 @@ model, preprocess = load_models()
 ocr = easyocr.Reader(['de', 'en'])
 
 # -----------------------------
-# 🧠 100 LABELS
+# LABELS
 # -----------------------------
 labels = [
     "ein Apfel","eine Banane","eine Orange","eine Birne","eine Erdbeere",
@@ -41,26 +41,16 @@ labels = [
     "eine Tomate","eine Gurke","eine Paprika","eine Karotte","eine Kartoffel",
     "eine Zwiebel","ein Knoblauch","ein Brokkoli","ein Blumenkohl","ein Salatkopf",
     "eine Zucchini","eine Aubergine","ein Spinat","eine Avocado","ein Pilz",
-    "ein Maiskolben","eine Rote Bete","ein Sellerie","eine Lauchzwiebel","ein Kürbis",
-    "eine Süßkartoffel","ein Radieschen","eine Erbse","ein Kohlrabi","ein Rosenkohl",
 
     "ein Käse","eine Milchpackung","ein Joghurt","ein Quark","ein Frischkäse",
     "ein Stück Butter","eine Sahne","ein Pudding",
 
-    "ein Hähnchen","ein Hähnchenfilet","ein Rindfleisch","ein Schweinefleisch","ein Hackfleisch",
-    "ein Fischfilet","ein Lachs","eine Forelle","eine Wurst","ein Schinken",
-    "eine Salami","ein Schnitzel","eine Bratwurst","ein Steak","ein Thunfisch",
+    "ein Hähnchen","ein Rindfleisch","ein Schweinefleisch","ein Fischfilet",
+    "eine Wurst","ein Schinken","eine Salami",
 
-    "ein Brot","ein Brötchen","ein Baguette","eine Brezel","eine Pizza",
-    "ein Croissant","ein Toast","ein Sandwich","ein Donut","ein Muffin",
+    "ein Brot","ein Brötchen","eine Pizza","ein Croissant","ein Sandwich",
 
-    "eine Tiefkühlpizza","eine Lasagne","eine Suppe","eine Nudelschale",
-    "eine Reisportion","ein Burger","ein Curry","eine Fertigmahlzeit",
-
-    "eine Wasserflasche","eine Saftflasche","eine Cola","eine Limonade",
-    "eine Bierflasche","eine Weinflasche","eine Milch",
-
-    "eine Schokolade","ein Keks","ein Riegel","eine Packung Chips","ein Eis"
+    "eine Schokolade","ein Keks","eine Packung Chips","ein Eis"
 ]
 
 text_tokens = clip.tokenize(labels)
@@ -68,9 +58,6 @@ text_tokens = clip.tokenize(labels)
 # -----------------------------
 # SESSION STATE
 # -----------------------------
-if "inventory" not in st.session_state:
-    st.session_state.inventory = []
-
 if "food_item" not in st.session_state:
     st.session_state.food_item = None
 
@@ -101,35 +88,34 @@ def extract_mhd(image):
 st.title("🧊 Smart Kühlschrank KI")
 
 # =========================================================
-# 🍎 FOOD ERKENNUNG
+# FOOD
 # =========================================================
-st.subheader("📸 Lebensmittel erkennen")
+st.subheader("📸 Lebensmittel")
 
 food_tab1, food_tab2, food_tab3 = st.tabs(["📷 Kamera", "📁 Upload", "✏️ Manuell"])
 
 image = None
 
 with food_tab1:
-    cam = st.camera_input("Foto aufnehmen")
+    cam = st.camera_input("Foto")
     if cam:
         image = Image.open(cam)
 
 with food_tab2:
-    up = st.file_uploader("Bild hochladen", type=["jpg", "png"])
+    up = st.file_uploader("Upload", type=["jpg","png"])
     if up:
         image = Image.open(up)
 
 with food_tab3:
-    manual_food = st.text_input("Lebensmittel eingeben")
-
+    manual = st.text_input("Food eingeben")
     if st.button("Übernehmen Food"):
-        if manual_food:
-            st.session_state.food_item = manual_food
+        if manual:
+            st.session_state.food_item = manual
 
 if image:
     st.image(image)
 
-    if st.button("🔍 Lebensmittel erkennen"):
+    if st.button("Erkennen"):
         img = preprocess(image).unsqueeze(0)
 
         with torch.no_grad():
@@ -139,80 +125,61 @@ if image:
         st.session_state.food_item = labels[probs.argmax()]
 
 if st.session_state.food_item:
-    st.success(f"🍎 {st.session_state.food_item}")
+    st.success(st.session_state.food_item)
 
 # =========================================================
-# 📅 MHD (KAMERA / UPLOAD / MANUELL)
+# MHD
 # =========================================================
-st.subheader("📅 MHD erkennen")
+st.subheader("📅 MHD")
 
-mhd_tab1, mhd_tab2, mhd_tab3 = st.tabs(["📷 Kamera", "📁 Upload", "✏️ Manuell"])
+mhd_image = st.file_uploader("MHD Bild", type=["jpg","png"], key="mhd")
 
-mhd_image = None
-
-with mhd_tab1:
-    cam_mhd = st.camera_input("MHD Foto")
-    if cam_mhd:
-        mhd_image = Image.open(cam_mhd)
-
-with mhd_tab2:
-    up_mhd = st.file_uploader("MHD Bild", type=["jpg", "png"], key="mhd")
-    if up_mhd:
-        mhd_image = Image.open(up_mhd)
-
-with mhd_tab3:
-    manual_mhd = st.text_input("MHD eingeben (z.B. 25.12.2026)")
-
-    if st.button("MHD übernehmen"):
-        if manual_mhd:
-            st.session_state.mhd_value = manual_mhd
-
-# OCR BUTTON
 if mhd_image:
-    st.image(mhd_image)
+    image = Image.open(mhd_image)
+    st.image(image)
 
-    if st.button("📅 MHD erkennen"):
-        st.session_state.mhd_value = extract_mhd(mhd_image)
-
-# =========================================================
-# ➕ SPEICHERN IN SUPABASE
-# =========================================================
-st.subheader("➕ Inventar speichern")
-
-if st.session_state.food_item:
-
-    if st.button("Zum Inventar hinzufügen"):
-
-        today = datetime.now().date()   # 👉 NUR DATUM
-
-        supabase.table("fridge_inventory").insert({
-            "food_name": st.session_state.food_item,
-            "mhd": st.session_state.mhd_value,
-            "added_at": str(today)
-        }).execute()
-
-        st.success("Gespeichert!")
-
-        st.session_state.food_item = None
-        st.session_state.mhd_value = None
+    if st.button("MHD erkennen"):
+        st.session_state.mhd_value = extract_mhd(image)
 
 # =========================================================
-# 📦 INVENTAR + LÖSCHEN
+# SPEICHERN
+# =========================================================
+st.subheader("➕ Speichern")
+
+if st.session_state.food_item and st.button("Speichern"):
+
+    # ✅ FIX: nur Datum ohne Zeit
+    today = datetime.now().date().strftime("%Y-%m-%d")
+
+    supabase.table("fridge_inventory").insert({
+        "food_name": st.session_state.food_item,
+        "mhd": st.session_state.mhd_value,
+        "added_at": today
+    }).execute()
+
+    st.success("Gespeichert!")
+
+    st.session_state.food_item = None
+    st.session_state.mhd_value = None
+
+# =========================================================
+# INVENTAR
 # =========================================================
 st.subheader("📦 Inventar")
 
 data = supabase.table("fridge_inventory").select("*").execute().data
 
 if data:
-    for row in data:
-        c1, c2, c3, c4 = st.columns([3,2,2,1])
 
-        c1.write(row["food_name"])
-        c2.write(row["mhd"])
-        c3.write(row["added_at"])
+    # 📊 Tabelle mit Überschriften
+    df = pd.DataFrame(data)
+    df = df.rename(columns={
+        "food_name": "Lebensmittel",
+        "mhd": "MHD",
+        "added_at": "Hinzugefügt am"
+    })
 
-        if c4.button("❌", key=row["id"]):
-            supabase.table("fridge_inventory").delete().eq("id", row["id"]).execute()
-            st.rerun()
+    st.dataframe(df, use_container_width=True)
+
 else:
     st.info("Inventar ist leer")

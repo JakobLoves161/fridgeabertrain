@@ -26,8 +26,12 @@ def load_models():
     return clip_model, preprocess
 
 model, preprocess = load_models()
-ocr = easyocr.Reader(['de', 'en'])
+@st.cache_resource
+def load_ocr():
+    import easyocr
+    return easyocr.Reader(['de', 'en'])
 
+ocr = load_ocr()
 # -----------------------------
 # LABELS
 # -----------------------------

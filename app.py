@@ -2,7 +2,7 @@ import streamlit as st
 import torch
 from PIL import Image
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
 import clip
 import numpy as np
 import cv2
@@ -11,7 +11,7 @@ import easyocr
 from supabase import create_client
 
 # -----------------------------
-# SUPABASE INIT
+# SUPABASE
 # -----------------------------
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
@@ -33,24 +33,8 @@ ocr = easyocr.Reader(['de', 'en'])
 # -----------------------------
 labels = [
     "ein Apfel","eine Banane","eine Orange","eine Birne","eine Erdbeere",
-    "eine Traube","eine Zitrone","eine Limette","eine Mango","eine Ananas",
-    "eine Wassermelone","eine Kirsche","ein Pfirsich","eine Nektarine",
-    "eine Heidelbeere","eine Himbeere","eine Brombeere","eine Kiwi",
-    "eine Granatapfel","eine Grapefruit",
-
-    "eine Tomate","eine Gurke","eine Paprika","eine Karotte","eine Kartoffel",
-    "eine Zwiebel","ein Knoblauch","ein Brokkoli","ein Blumenkohl","ein Salatkopf",
-    "eine Zucchini","eine Aubergine","ein Spinat","eine Avocado","ein Pilz",
-
-    "ein Käse","eine Milchpackung","ein Joghurt","ein Quark","ein Frischkäse",
-    "ein Stück Butter","eine Sahne","ein Pudding",
-
-    "ein Hähnchen","ein Rindfleisch","ein Schweinefleisch","ein Fischfilet",
-    "eine Wurst","ein Schinken","eine Salami",
-
-    "ein Brot","ein Brötchen","eine Pizza","ein Croissant","ein Sandwich",
-
-    "eine Schokolade","ein Keks","eine Packung Chips","ein Eis"
+    "eine Tomate","eine Gurke","ein Käse","eine Milchpackung","ein Brot",
+    "eine Pizza","ein Joghurt","eine Schokolade"
 ]
 
 text_tokens = clip.tokenize(labels)
@@ -85,37 +69,37 @@ def extract_mhd(image):
 # -----------------------------
 # UI
 # -----------------------------
-st.title("🧊 Smart Kühlschrank KI (Supabase Fix)")
+st.title("🧊 Smart Kühlschrank KI")
 
 # =========================================================
-# 🍎 FOOD
+# FOOD
 # =========================================================
-st.subheader("📸 Lebensmittel erkennen")
+st.subheader("📸 Lebensmittel")
 
 food_tab1, food_tab2, food_tab3 = st.tabs(["📷 Kamera", "📁 Upload", "✏️ Manuell"])
 
 image = None
 
 with food_tab1:
-    cam = st.camera_input("Foto aufnehmen")
+    cam = st.camera_input("Foto")
     if cam:
         image = Image.open(cam)
 
 with food_tab2:
-    up = st.file_uploader("Bild hochladen", type=["jpg","png"])
+    up = st.file_uploader("Upload", type=["jpg","png"])
     if up:
         image = Image.open(up)
 
 with food_tab3:
-    manual_food = st.text_input("Lebensmittel eingeben")
+    manual = st.text_input("Food eingeben")
     if st.button("Übernehmen Food"):
-        if manual_food:
-            st.session_state.food_item = manual_food
+        if manual:
+            st.session_state.food_item = manual
 
 if image:
     st.image(image)
 
-    if st.button("🔍 Erkennen"):
+    if st.button("Erkennen"):
         img = preprocess(image).unsqueeze(0)
 
         with torch.no_grad():
@@ -128,80 +112,52 @@ if st.session_state.food_item:
     st.success(st.session_state.food_item)
 
 # =========================================================
-# 📅 MHD
+# MHD
 # =========================================================
 st.subheader("📅 MHD")
 
-mhd_tab1, mhd_tab2, mhd_tab3 = st.tabs(["📷 Kamera", "📁 Upload", "✏️ Manuell"])
-
-mhd_image = None
-
-with mhd_tab1:
-    cam_mhd = st.camera_input("MHD Foto")
-    if cam_mhd:
-        mhd_image = Image.open(cam_mhd)
-
-with mhd_tab2:
-    up_mhd = st.file_uploader("MHD Bild", type=["jpg","png"], key="mhd")
-    if up_mhd:
-        mhd_image = Image.open(up_mhd)
-
-with mhd_tab3:
-    manual_mhd = st.text_input("MHD eingeben")
-    if st.button("Übernehmen MHD"):
-        if manual_mhd:
-            st.session_state.mhd_value = manual_mhd
+mhd_image = st.file_uploader("MHD Bild", type=["jpg","png"], key="mhd")
 
 if mhd_image:
-    st.image(mhd_image)
+    image = Image.open(mhd_image)
+    st.image(image)
 
-    if st.button("📅 Erkennen"):
-        st.session_state.mhd_value = extract_mhd(mhd_image)
+    if st.button("MHD erkennen"):
+        st.session_state.mhd_value = extract_mhd(image)
 
 # =========================================================
-# ➕ SAFE SUPABASE INSERT (FIXED)
+# SPEICHERN
 # =========================================================
 st.subheader("➕ Speichern")
 
-if st.session_state.food_item and st.button("In Datenbank speichern"):
+if st.session_state.food_item and st.button("Speichern"):
 
-    now = datetime.now() + timedelta(hours=2)
+    today = datetime.now().date()   # 🔥 NUR DATUM (kein Uhrzeit)
 
-    try:
-        res = supabase.table("fridge_inventory").insert({
-            "food_name": st.session_state.food_item,
-            "mhd": st.session_state.mhd_value,
-            "added_at": now.isoformat()
-        }).execute()
+    supabase.table("fridge_inventory").insert({
+        "food_name": st.session_state.food_item,
+        "mhd": st.session_state.mhd_value,
+        "added_at": str(today)   # 👉 nur Datum
+    }).execute()
 
-        st.success("Gespeichert in Supabase!")
+    st.success("Gespeichert!")
 
-    except Exception as e:
-        st.error("❌ Supabase Fehler:")
-        st.code(str(e))
+    st.session_state.food_item = None
+    st.session_state.mhd_value = None
 
 # =========================================================
-# 📦 LOAD INVENTORY
+# INVENTAR
 # =========================================================
 st.subheader("📦 Inventar")
 
-try:
-    data = supabase.table("fridge_inventory").select("*").execute().data
-except Exception as e:
-    st.error("Fehler beim Laden")
-    st.code(str(e))
-    data = []
+data = supabase.table("fridge_inventory").select("*").execute().data
 
 if data:
     for row in data:
-        c1, c2, c3, c4 = st.columns([3,2,2,1])
+        c1, c2, c3 = st.columns([3,2,1])
 
         c1.write(row["food_name"])
         c2.write(row["mhd"])
-        c3.write(row["added_at"])
-
-        if c4.button("❌", key=row["id"]):
-            supabase.table("fridge_inventory").delete().eq("id", row["id"]).execute()
-            st.rerun()
+        c3.write(row["added_at"])   # 👉 nur Datum sichtbar
 else:
     st.info("Inventar leer")

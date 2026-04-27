@@ -24,8 +24,11 @@ st.set_page_config(page_title="Kühlschrank", layout="centered")
 
 @st.cache_resource
 def load_models():
-    clip_model, preprocess = clip.load("ViT-B/32")
-    return clip_model, preprocess
+    import clip
+    model, preprocess = clip.load("ViT-B/32")
+    return model, preprocess
+
+model, preprocess = load_models()
 
 model, preprocess = load_models()
 @st.cache_resource

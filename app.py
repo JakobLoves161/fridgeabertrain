@@ -2,7 +2,7 @@ import streamlit as st
 import torch
 from PIL import Image
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import clip
 import numpy as np
 import cv2
@@ -92,7 +92,7 @@ with food_tab2:
 
 with food_tab3:
     manual = st.text_input("Food eingeben")
-    if st.button("Übernehmen Food"):
+    if st.button("Übernehmen"):
         if manual:
             st.session_state.food_item = manual
 
@@ -126,18 +126,18 @@ if mhd_image:
         st.session_state.mhd_value = extract_mhd(image)
 
 # =========================================================
-# SPEICHERN
+# SAVE TO SUPABASE
 # =========================================================
 st.subheader("➕ Speichern")
 
 if st.session_state.food_item and st.button("Speichern"):
 
-    today = datetime.now().date()   # 🔥 NUR DATUM (kein Uhrzeit)
+    now = datetime.now() + timedelta(hours=2)
 
     supabase.table("fridge_inventory").insert({
         "food_name": st.session_state.food_item,
         "mhd": st.session_state.mhd_value,
-        "added_at": str(today)   # 👉 nur Datum
+        "added_at": now.isoformat()
     }).execute()
 
     st.success("Gespeichert!")
@@ -146,18 +146,15 @@ if st.session_state.food_item and st.button("Speichern"):
     st.session_state.mhd_value = None
 
 # =========================================================
-# INVENTAR
+# LOAD DATA
 # =========================================================
 st.subheader("📦 Inventar")
 
 data = supabase.table("fridge_inventory").select("*").execute().data
 
-if data:
-    for row in data:
-        c1, c2, c3 = st.columns([3,2,1])
+for row in data:
+    c1, c2, c3 = st.columns([3,2,2])
 
-        c1.write(row["food_name"])
-        c2.write(row["mhd"])
-        c3.write(row["added_at"])   # 👉 nur Datum sichtbar
-else:
-    st.info("Inventar leer")
+    c1.write(row["food_name"])
+    c2.write(row["mhd"])
+    c3.write(row["added_at"])

@@ -197,6 +197,7 @@ if st.session_state.food_item:
         st.session_state.mhd_value = None
 
 # =========================================================
+st.write(supabase.table("fridge_inventory").select("*").execute())
 # 📦 INVENTAR + LÖSCHEN
 # =========================================================
 st.subheader("📦 Inventar")

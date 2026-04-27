@@ -20,6 +20,8 @@ supabase = create_client(url, key)
 # -----------------------------
 # MODELS
 # -----------------------------
+st.set_page_config(page_title="Kühlschrank", layout="centered")
+
 @st.cache_resource
 def load_models():
     clip_model, preprocess = clip.load("ViT-B/32")

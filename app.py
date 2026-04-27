@@ -34,23 +34,9 @@ ocr = easyocr.Reader(['de', 'en'])
 labels = [
     "ein Apfel","eine Banane","eine Orange","eine Birne","eine Erdbeere",
     "eine Traube","eine Zitrone","eine Limette","eine Mango","eine Ananas",
-    "eine Wassermelone","eine Kirsche","ein Pfirsich","eine Nektarine",
-    "eine Heidelbeere","eine Himbeere","eine Brombeere","eine Kiwi",
-    "eine Granatapfel","eine Grapefruit",
-
     "eine Tomate","eine Gurke","eine Paprika","eine Karotte","eine Kartoffel",
-    "eine Zwiebel","ein Knoblauch","ein Brokkoli","ein Blumenkohl","ein Salatkopf",
-    "eine Zucchini","eine Aubergine","ein Spinat","eine Avocado","ein Pilz",
-
-    "ein Käse","eine Milchpackung","ein Joghurt","ein Quark","ein Frischkäse",
-    "ein Stück Butter","eine Sahne","ein Pudding",
-
-    "ein Hähnchen","ein Rindfleisch","ein Schweinefleisch","ein Fischfilet",
-    "eine Wurst","ein Schinken","eine Salami",
-
-    "ein Brot","ein Brötchen","eine Pizza","ein Croissant","ein Sandwich",
-
-    "eine Schokolade","ein Keks","eine Packung Chips","ein Eis"
+    "ein Käse","eine Milchpackung","ein Joghurt","ein Brot","eine Pizza",
+    "eine Schokolade","ein Keks"
 ]
 
 text_tokens = clip.tokenize(labels)
@@ -88,7 +74,7 @@ def extract_mhd(image):
 st.title("🧊 Smart Kühlschrank KI")
 
 # =========================================================
-# FOOD
+# FOOD ERKENNUNG
 # =========================================================
 st.subheader("📸 Lebensmittel")
 
@@ -107,10 +93,11 @@ with food_tab2:
         image = Image.open(up)
 
 with food_tab3:
-    manual = st.text_input("Food eingeben")
-    if st.button("Übernehmen Food"):
-        if manual:
-            st.session_state.food_item = manual
+    manual_food = st.text_input("Lebensmittel eingeben")
+
+    if st.button("Food übernehmen"):
+        if manual_food:
+            st.session_state.food_item = manual_food
 
 if image:
     st.image(image)
@@ -125,31 +112,49 @@ if image:
         st.session_state.food_item = labels[probs.argmax()]
 
 if st.session_state.food_item:
-    st.success(st.session_state.food_item)
+    st.success(f"🍎 {st.session_state.food_item}")
 
 # =========================================================
-# MHD
+# MHD (FULL RESTORED)
 # =========================================================
 st.subheader("📅 MHD")
 
-mhd_image = st.file_uploader("MHD Bild", type=["jpg","png"], key="mhd")
+mhd_tab1, mhd_tab2, mhd_tab3 = st.tabs(["📷 Kamera", "📁 Upload", "✏️ Manuell"])
 
+mhd_image = None
+
+with mhd_tab1:
+    cam_mhd = st.camera_input("MHD Foto")
+    if cam_mhd:
+        mhd_image = Image.open(cam_mhd)
+
+with mhd_tab2:
+    up_mhd = st.file_uploader("MHD Bild", type=["jpg","png"], key="mhd")
+    if up_mhd:
+        mhd_image = Image.open(up_mhd)
+
+with mhd_tab3:
+    manual_mhd = st.text_input("MHD eingeben (z.B. 25.12.2026)")
+
+    if st.button("MHD übernehmen"):
+        if manual_mhd:
+            st.session_state.mhd_value = manual_mhd
+
+# OCR BUTTON
 if mhd_image:
-    image = Image.open(mhd_image)
-    st.image(image)
+    st.image(mhd_image)
 
     if st.button("MHD erkennen"):
-        st.session_state.mhd_value = extract_mhd(image)
+        st.session_state.mhd_value = extract_mhd(mhd_image)
 
 # =========================================================
 # SPEICHERN
 # =========================================================
 st.subheader("➕ Speichern")
 
-if st.session_state.food_item and st.button("Speichern"):
+if st.session_state.food_item and st.button("Zum Inventar hinzufügen"):
 
-    # ✅ FIX: nur Datum ohne Zeit
-    today = datetime.now().date().strftime("%Y-%m-%d")
+    today = datetime.now().date().strftime("%Y-%m-%d")  # FIX: nur Datum
 
     supabase.table("fridge_inventory").insert({
         "food_name": st.session_state.food_item,
@@ -163,16 +168,15 @@ if st.session_state.food_item and st.button("Speichern"):
     st.session_state.mhd_value = None
 
 # =========================================================
-# INVENTAR
+# INVENTAR + LÖSCHEN + TABELLENÜBERSCHRIFTEN
 # =========================================================
 st.subheader("📦 Inventar")
 
 data = supabase.table("fridge_inventory").select("*").execute().data
 
 if data:
-
-    # 📊 Tabelle mit Überschriften
     df = pd.DataFrame(data)
+
     df = df.rename(columns={
         "food_name": "Lebensmittel",
         "mhd": "MHD",
@@ -180,6 +184,20 @@ if data:
     })
 
     st.dataframe(df, use_container_width=True)
+
+    # ❌ DELETE BUTTONS
+    st.write("### ❌ Einzelne Einträge löschen")
+
+    for row in data:
+        col1, col2, col3, col4 = st.columns([3,2,2,1])
+
+        col1.write(row["food_name"])
+        col2.write(row["mhd"])
+        col3.write(row["added_at"])
+
+        if col4.button("❌", key=row["id"]):
+            supabase.table("fridge_inventory").delete().eq("id", row["id"]).execute()
+            st.rerun()
 
 else:
     st.info("Inventar ist leer")

@@ -31,12 +31,14 @@ def load_models():
 model, preprocess = load_models()
 
 model, preprocess = load_models()
+
 @st.cache_resource
 def load_ocr():
     import easyocr
     return easyocr.Reader(['de', 'en'])
 
 ocr = load_ocr()
+
 # -----------------------------
 # LABELS
 # -----------------------------
@@ -180,7 +182,7 @@ if st.session_state.food_item and st.button("In Datenbank speichern"):
         res = supabase.table("fridge_inventory").insert({
             "food_name": st.session_state.food_item,
             "mhd": st.session_state.mhd_value,
-            "added_at": now.isoformat()
+            "added_at": now.date().isoformat()  # ✅ FIX
         }).execute()
 
         st.success("Gespeichert in Supabase!")
@@ -202,12 +204,22 @@ except Exception as e:
     data = []
 
 if data:
+
+    # ✅ FIX: Header
+    h1, h2, h3, h4 = st.columns([3,2,2,1])
+    h1.markdown("**Lebensmittel**")
+    h2.markdown("**MHD**")
+    h3.markdown("**Hinzugefügt am**")
+    h4.markdown("")
+
     for row in data:
         c1, c2, c3, c4 = st.columns([3,2,2,1])
 
+        added_date = str(row["added_at"]).split("T")[0]  # ✅ FIX
+
         c1.write(row["food_name"])
         c2.write(row["mhd"])
-        c3.write(row["added_at"])
+        c3.write(added_date)
 
         if c4.button("❌", key=row["id"]):
             supabase.table("fridge_inventory").delete().eq("id", row["id"]).execute()

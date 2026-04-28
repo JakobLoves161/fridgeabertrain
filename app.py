@@ -48,7 +48,7 @@ labels = [
     "eine Traube","eine Zitrone","eine Limette","eine Mango","eine Ananas",
     "eine Wassermelone","eine Kirsche","ein Pfirsich","eine Nektarine",
     "eine Heidelbeere","eine Himbeere","eine Brombeere","eine Kiwi",
-    "eine Granatapfel","eine Grapefruit", "eine Papaya", eine 
+    "eine Granatapfel","eine Grapefruit", "eine Papaya",
 
     "eine Tomate","eine Gurke","eine Paprika","eine Karotte","eine Kartoffel",
     "eine Zwiebel","ein Knoblauch","ein Brokkoli","ein Blumenkohl","ein Salatkopf",

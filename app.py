@@ -18,17 +18,18 @@ key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
 # -----------------------------
-# MODELS
+# CONFIG
 # -----------------------------
 st.set_page_config(page_title="Kühlschrank", layout="centered")
 
+# -----------------------------
+# MODELS
+# -----------------------------
 @st.cache_resource
 def load_models():
     import clip
     model, preprocess = clip.load("ViT-B/32")
     return model, preprocess
-
-model, preprocess = load_models()
 
 model, preprocess = load_models()
 
@@ -76,7 +77,7 @@ if "mhd_value" not in st.session_state:
     st.session_state.mhd_value = None
 
 # -----------------------------
-# OCR
+# OCR FUNCTION
 # -----------------------------
 def extract_mhd(image):
     img = np.array(image)
@@ -96,7 +97,7 @@ def extract_mhd(image):
 # -----------------------------
 # UI
 # -----------------------------
-st.title("🧊 Smart Kühlschrank KI (Supabase Fix)")
+st.title("🧊 Smart Kühlschrank KI")
 
 # =========================================================
 # 🍎 FOOD
@@ -119,9 +120,8 @@ with food_tab2:
 
 with food_tab3:
     manual_food = st.text_input("Lebensmittel eingeben")
-    if st.button("Übernehmen Food"):
-        if manual_food:
-            st.session_state.food_item = manual_food
+    if manual_food:
+        st.session_state.food_item = manual_food
 
 if image:
     st.image(image)
@@ -159,9 +159,8 @@ with mhd_tab2:
 
 with mhd_tab3:
     manual_mhd = st.text_input("MHD eingeben")
-    if st.button("Übernehmen MHD"):
-        if manual_mhd:
-            st.session_state.mhd_value = manual_mhd
+    if manual_mhd:
+        st.session_state.mhd_value = manual_mhd
 
 if mhd_image:
     st.image(mhd_image)
@@ -170,7 +169,7 @@ if mhd_image:
         st.session_state.mhd_value = extract_mhd(mhd_image)
 
 # =========================================================
-# ➕ SAFE SUPABASE INSERT (FIXED)
+# ➕ SPEICHERN
 # =========================================================
 st.subheader("➕ Speichern")
 
@@ -179,20 +178,23 @@ if st.session_state.food_item and st.button("In Datenbank speichern"):
     now = datetime.now() + timedelta(hours=2)
 
     try:
-        res = supabase.table("fridge_inventory").insert({
+        supabase.table("fridge_inventory").insert({
             "food_name": st.session_state.food_item,
             "mhd": st.session_state.mhd_value,
-            "added_at": now.date().isoformat()  # ✅ FIX
+            "added_at": now.date().isoformat()
         }).execute()
 
-        st.success("Gespeichert in Supabase!")
+        st.success("Gespeichert!")
+
+        st.session_state.food_item = None
+        st.session_state.mhd_value = None
 
     except Exception as e:
-        st.error("❌ Supabase Fehler:")
+        st.error("❌ Fehler:")
         st.code(str(e))
 
 # =========================================================
-# 📦 LOAD INVENTORY
+# 📦 INVENTAR
 # =========================================================
 st.subheader("📦 Inventar")
 
@@ -205,24 +207,47 @@ except Exception as e:
 
 if data:
 
-    # ✅ FIX: Header
+    def parse_date(val):
+        try:
+            return datetime.fromisoformat(val)
+        except:
+            return datetime.max
+
+    data = sorted(data, key=lambda x: parse_date(x["mhd"]) if x["mhd"] else datetime.max)
+
     h1, h2, h3, h4 = st.columns([3,2,2,1])
     h1.markdown("**Lebensmittel**")
     h2.markdown("**MHD**")
     h3.markdown("**Hinzugefügt am**")
     h4.markdown("")
 
+    today = datetime.now().date()
+
     for row in data:
         c1, c2, c3, c4 = st.columns([3,2,2,1])
 
-        added_date = str(row["added_at"]).split("T")[0]  # ✅ FIX
+        added_date = str(row["added_at"]).split("T")[0]
 
-        c1.write(row["food_name"])
-        c2.write(row["mhd"])
-        c3.write(added_date)
+        color = "white"
+
+        try:
+            mhd_date = datetime.fromisoformat(row["mhd"]).date()
+            diff = (mhd_date - today).days
+
+            if diff <= 2:
+                color = "red"
+            elif diff <= 5:
+                color = "orange"
+        except:
+            pass
+
+        c1.markdown(f"<span style='color:{color}'>{row['food_name']}</span>", unsafe_allow_html=True)
+        c2.markdown(f"<span style='color:{color}'>{row['mhd']}</span>", unsafe_allow_html=True)
+        c3.markdown(f"<span style='color:{color}'>{added_date}</span>", unsafe_allow_html=True)
 
         if c4.button("❌", key=row["id"]):
             supabase.table("fridge_inventory").delete().eq("id", row["id"]).execute()
             st.rerun()
+
 else:
     st.info("Inventar leer")

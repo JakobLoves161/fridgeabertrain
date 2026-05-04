@@ -149,17 +149,17 @@ with food_tab3:
     if manual_food:
         st.session_state.food_item = manual_food
 
+# 🔥 AUTO ERKENNUNG (ohne Button)
 if image:
     st.image(image)
 
-    if st.button("🔍 Erkennen"):
-        img = preprocess(image).unsqueeze(0)
+    img = preprocess(image).unsqueeze(0)
 
-        with torch.no_grad():
-            logits, _ = model(img, text_tokens)
-            probs = logits.softmax(dim=-1).cpu().numpy()[0]
+    with torch.no_grad():
+        logits, _ = model(img, text_tokens)
+        probs = logits.softmax(dim=-1).cpu().numpy()[0]
 
-        st.session_state.food_item = labels[probs.argmax()]
+    st.session_state.food_item = labels[probs.argmax()]
 
 if st.session_state.food_item:
     st.success(st.session_state.food_item)
